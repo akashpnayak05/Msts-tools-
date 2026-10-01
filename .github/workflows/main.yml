@@ -1,0 +1,53 @@
+name: Build ShapeToObj
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+      - name: Get ShapeToObj source
+        uses: actions/checkout@v4
+        with:
+          repository: Hirek193/openrails
+          ref: master
+          fetch-depth: 1
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Restore packages
+        run: nuget restore Source/ORTS.sln
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build ShapeToObj
+        run: >
+          msbuild Source/ShapeToObj/ShapeToObj.csproj
+          /t:Rebuild
+          /p:Configuration=Release
+          /p:Platform="Any CPU"
+
+      - name: Find EXE
+        shell: powershell
+        run: |
+          $exe = Get-ChildItem -Path . -Filter ShapeToObj.exe -Recurse |
+            Where-Object { $_.FullName -match '\\bin\\Release\\' } |
+            Select-Object -First 1
+
+          if (-not $exe) {
+            Write-Host "ShapeToObj.exe was not found."
+            exit 1
+          }
+
+          New-Item -ItemType Directory -Force artifact
+          Copy-Item $exe.FullName artifact\ShapeToObj.exe
+
+      - name: Upload ShapeToObj.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShapeToObj-Windows
+          path: artifact/ShapeToObj.exe
